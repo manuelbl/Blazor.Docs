@@ -5,7 +5,7 @@ description: Discover how to host and deploy Blazor apps using ASP.NET Core, Con
 manager: wpickett
 ms.author: riande
 ms.custom: mvc
-ms.date: 04/16/2018
+ms.date: 12/25/2018
 ms.prod: asp.net-core
 ms.technology: aspnet
 ms.topic: article
@@ -155,35 +155,88 @@ The `--urls` argument indicates the IP addresses or host addresses with ports an
 
 There are two deployment models for Blazor apps:
 
-* [Hosted deployment with ASP.NET Core](#hosted-deployment-with-aspnet-core) &ndash; Hosted deployment uses an ASP.NET Core app on the server to host the Blazor app.
+* [Hosted deployment with ASP.NET Core](#hosted-deployment-with-aspnet-core) &ndash; Hosted deployment uses an ASP.NET Core app on the server to host the Blazor app using either the [client-side hosting model](xref:client-side/blazor/host-and-deploy/hosting-models#client-side-hosting-model) or the [server-side hosting model](xref:client-side/blazor/host-and-deploy/hosting-models#server-side-hosting-model).
 * [Standalone deployment](#standalone-deployment) &ndash; Standalone deployment places the Blazor app on a static hosting web server or service, where .NET isn't used to serve the Blazor app.
 
 ### Hosted deployment with ASP.NET Core
 
-In a hosted deployment, an ASP.NET Core app handles single-page application routing and Blazor app hosting. The published ASP.NET Core app, along with one or more Blazor apps that it hosts, is deployed to the web server or hosting service.
+In a hosted deployment, an ASP.NET Core app handles single-page application routing and Blazor app hosting. The published ASP.NET Core app is deployed to the web server or hosting service.
 
 To host a Blazor app, the ASP.NET Core app must:
 
 * Reference the Blazor app project.
 * Reference the [Microsoft.AspNetCore.Blazor.Server](https://www.nuget.org/packages/Microsoft.AspNetCore.Blazor.Server/) package in its project file.
-* Configure Blazor app hosting with the `UseBlazor` extension method on [IApplicationBuilder](https://docs.microsoft.com/dotnet/api/microsoft.aspnetcore.builder.iapplicationbuilder) in `Startup.Configure`.
+* Configure Blazor app hosting in `Startup.Configure` with the:
+  * `UseBlazor` extension method on [IApplicationBuilder](https://docs.microsoft.com/dotnet/api/microsoft.aspnetcore.builder.iapplicationbuilder) when using the client-side hosting model.
+  * `UseServerSideBlazor` extension method on [IApplicationBuilder](https://docs.microsoft.com/dotnet/api/microsoft.aspnetcore.builder.iapplicationbuilder) when using the server-side hosting model.
 
-```csharp
-public void Configure(IApplicationBuilder app, IHostingEnvironment env)
-{
-    if (env.IsDevelopment())
-    {
-        app.UseDeveloperExceptionPage();
-    }
-
-    app.UseBlazor<Client.Program>();
-}
-```
-
-The `UseBlazor` extension method performs the following tasks:
+The `UseBlazor` and `UseServerSideBlazor` extension methods perform the following tasks:
 
 * Configure [Static File Middleware](https://docs.microsoft.com/aspnet/core/fundamentals/static-files) to serve Blazor's static assets from the *dist* folder. In the Development environment, the files in *wwwroot* folder are served.
 * Configure single-page application routing for resource requests that aren't for actual files that exist on disk. The app serves the default document (*wwwroot/index.html*) for any request that hasn't been served by a prior Static File Middleware instance. For example, a request to receive a page from the app that should be handled by the Blazor router on the client is rewritten into a request for the *wwwroot/index.html* page.
+
+#### Client-side hosting model
+
+```csharp
+public class Startup
+{
+    public void ConfigureServices(IServiceCollection services)
+    {
+    }
+
+    public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+    {
+        if (env.IsDevelopment())
+        {
+            app.UseDeveloperExceptionPage();
+        }
+
+        app.UseBlazor<Client.Program>();
+    }
+}
+```
+
+For more information, see [Hosting models: Client-side hosting model](xref:client-side/blazor/host-and-deploy/hosting-models#client-side-hosting-model).
+
+#### Server-side hosting model
+
+```csharp
+public class Startup
+{
+    public void ConfigureServices(IServiceCollection services)
+    {
+        // Adds the Server-Side Blazor services, and those registered 
+        // by the app project's startup.
+        services.AddServerSideBlazor<App.Startup>();
+
+        services.AddResponseCompression(options =>
+        {
+            options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+            {
+                MediaTypeNames.Application.Octet,
+                WasmMediaTypeNames.Application.Wasm,
+            });
+        });
+    }
+
+    public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+    {
+        app.UseResponseCompression();
+
+        if (env.IsDevelopment())
+        {
+            app.UseDeveloperExceptionPage();
+        }
+
+        // Use component registrations and static files from the app project.
+        app.UseServerSideBlazor<App.Startup>();
+    }
+}
+```
+
+For more information, see [Hosting models: Server-side hosting model](xref:client-side/blazor/host-and-deploy/hosting-models#server-side-hosting-model).
+
+#### Deployment
 
 When the ASP.NET Core app is published, the Blazor app is included in the published output so that the ASP.NET Core app and the Blazor app can be deployed together. For more information on ASP.NET Core app hosting and deployment, see [Host and deploy ASP.NET Core](https://docs.microsoft.com/aspnet/core/host-and-deploy).
 
